@@ -6,12 +6,12 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 import async_timeout
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.components.notify import async_call as notify_call
 
 from .const import (
@@ -31,15 +31,14 @@ _LOGGER = logging.getLogger(__name__)
 NOTIFICATION_THROTTLE = timedelta(minutes=10)
 
 
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     domain_config = hass.data.get(DOMAIN, {})
-    api_url = domain_config.get("api_url", DEFAULT_API_URL)
-    scan_interval = domain_config.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+    api_url = domain_config.get("api_url") or DEFAULT_API_URL
+    scan_interval = domain_config.get("scan_interval") or DEFAULT_SCAN_INTERVAL
     session_token = domain_config.get("session_token")
     device_id = domain_config.get("device_id")
     cookie = domain_config.get("cookie")
