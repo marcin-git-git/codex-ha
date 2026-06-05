@@ -1,8 +1,7 @@
 {
-  "services": {
-    "check_limits": {
-      "name": "Sprawdź limity",
-      "description": "Ręcznie sprawdza stan limitów Codex i wysyła powiadomienie jeśli zostały zresetowane."
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Tylko jedna instancja Codex Limits jest dozwolona."
     }
   }
 }

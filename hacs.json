@@ -1,0 +1,6 @@
+{
+  "name": "Codex Limits Monitor",
+  "homeassistant": "2024.1.0",
+  "hide_default_branch": false,
+  "render_readme": true
+}
