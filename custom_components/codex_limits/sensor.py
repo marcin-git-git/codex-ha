@@ -115,7 +115,8 @@ class CodexLimitsCoordinator:
         }
 
         if self.session_token:
-            headers["Authorization"] = f"Bearer {self.session_token}"
+            token = self.session_token.removeprefix("Bearer ")
+            headers["Authorization"] = f"Bearer {token}"
 
         if self.device_id:
             headers["OAI-Device-Id"] = self.device_id

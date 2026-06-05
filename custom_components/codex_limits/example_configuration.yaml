@@ -13,6 +13,7 @@
 
 codex_limits:
   # Bearer token z headera Authorization zapytania do /wham/usage
+  # Możesz podać z prefixem "Bearer " lub bez - kod obsłuży obie wersje
   session_token: "eyJhbGciOiJSUzI1NiIs..."
 
   # Opcjonalnie - ciasteczka sesyjne (w razie potrzeby)
