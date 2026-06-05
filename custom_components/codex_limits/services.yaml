@@ -1,0 +1,4 @@
+check_limits:
+  name: Sprawdź limity
+  description: Ręcznie sprawdza stan limitów Codex i wysyła powiadomienie jeśli zostały zresetowane.
+  fields: {}

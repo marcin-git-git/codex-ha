@@ -1,0 +1,8 @@
+{
+  "services": {
+    "check_limits": {
+      "name": "Check limits",
+      "description": "Manually checks Codex limits and sends notification if they have been reset."
+    }
+  }
+}

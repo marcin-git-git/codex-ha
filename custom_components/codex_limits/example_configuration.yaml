@@ -1,0 +1,35 @@
+# Przykładowa konfiguracja w configuration.yaml
+
+codex_limits:
+  api_url: "https://api.codex.example.com/limits"
+  scan_interval: 60
+  # api_key: "twój-klucz-api"  # opcjonalnie
+  # headers:                    # opcjonalnie - dodatkowe nagłówki
+  #   X-Custom: "wartosc"
+  limits:                       # opcjonalnie - dostosowanie limitów
+    5h:
+      name: "Limit 5-godzinny"
+      max: 5
+    5d:
+      name: "Limit 5-dniowy"
+      max: 5
+
+# Przykładowa automatyzacja (opcjonalnie - integracja sama wysyła powiadomienia):
+#
+# automation:
+#   - alias: "Powiadom o resecie limitu Codex"
+#     trigger:
+#       - platform: state
+#         entity_id: sensor.codex_limit_5_godzinny
+#     condition:
+#       - condition: template
+#         value_template: >
+#           {{ trigger.from_state.state | float(0) < 1.5
+#              and trigger.to_state.state | float(0) > 3.5 }}
+#     action:
+#       - service: notify.mobile_app_telefon
+#         data:
+#           title: "Codex - reset limitu"
+#           message: >
+#             Limit {{ state_attr('sensor.codex_limit_5_godzinny', 'limit_name') }}
+#             został zresetowany! ({{ trigger.from_state.state }} → {{ trigger.to_state.state }})
