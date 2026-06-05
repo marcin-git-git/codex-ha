@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -19,11 +16,11 @@ CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.Schema(
             {
-                vol.Required("api_url"): cv.url,
-                vol.Optional("scan_interval", default=60): cv.positive_int,
-                vol.Optional("api_key"): cv.string,
-                vol.Optional("headers", default={}): dict,
-                vol.Optional("limits", default={}): dict,
+                vol.Optional("api_url"): cv.url,
+                vol.Optional("scan_interval", default=120): cv.positive_int,
+                vol.Optional("session_token"): cv.string,
+                vol.Optional("device_id"): cv.string,
+                vol.Optional("cookie"): cv.string,
             }
         )
     },
@@ -37,11 +34,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     conf = config[DOMAIN]
     hass.data[DOMAIN] = {
-        "api_url": conf["api_url"],
-        "scan_interval": conf.get("scan_interval", 60),
-        "api_key": conf.get("api_key"),
-        "headers": conf.get("headers", {}),
-        "limits_config": conf.get("limits", {}),
+        "api_url": conf.get("api_url"),
+        "scan_interval": conf.get("scan_interval", 120),
+        "session_token": conf.get("session_token"),
+        "device_id": conf.get("device_id"),
+        "cookie": conf.get("cookie"),
     }
 
     hass.helpers.discovery.load_platform("sensor", DOMAIN, {}, config)

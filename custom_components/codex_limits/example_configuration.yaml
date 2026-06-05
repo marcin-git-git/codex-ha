@@ -1,35 +1,46 @@
-# Przykładowa konfiguracja w configuration.yaml
+# Konfiguracja w configuration.yaml
+#
+# Jak zdobyć token:
+# 1. Otwórz https://chatgpt.com/codex/cloud/settings/analytics
+# 2. F12 -> Application -> Cookies -> chatgpt.com
+# 3. Skopiuj wartość __Secure-next-auth.session-token.0
+# 4. Skopiuj wartość __Secure-next-auth.session-token.1 (jeśli jest)
+# 5. W Network znajdź zapytanie do /backend-api/wham/usage
+#    i skopiuj z niego header "Authorization: Bearer ..."
+#
+# UWAGA: Token wygasa co ~3 dni. Trzeba go ręcznie odświeżać
+#        lub napisać automatyzację HA do refreshu.
 
 codex_limits:
-  api_url: "https://api.codex.example.com/limits"
-  scan_interval: 60
-  # api_key: "twój-klucz-api"  # opcjonalnie
-  # headers:                    # opcjonalnie - dodatkowe nagłówki
-  #   X-Custom: "wartosc"
-  limits:                       # opcjonalnie - dostosowanie limitów
-    5h:
-      name: "Limit 5-godzinny"
-      max: 5
-    5d:
-      name: "Limit 5-dniowy"
-      max: 5
+  # Bearer token z headera Authorization zapytania do /wham/usage
+  session_token: "eyJhbGciOiJSUzI1NiIs..."
 
-# Przykładowa automatyzacja (opcjonalnie - integracja sama wysyła powiadomienia):
+  # Opcjonalnie - ciasteczka sesyjne (w razie potrzeby)
+  # cookie: "key1=value1; key2=value2"
+
+  # Opcjonalnie - device ID z headera OAI-Device-Id
+  # device_id: "a5850256-33cf-49f5-8405-72c17c01046f"
+
+  # Co ile sekund sprawdzać (domyślnie 120)
+  # scan_interval: 120
+
+# Przykładowa automatyzacja z powiadomieniem na telefon:
 #
 # automation:
-#   - alias: "Powiadom o resecie limitu Codex"
+#   - alias: "Codex - powiadom gdy limit zresetowany"
 #     trigger:
-#       - platform: state
+#       - platform: numeric_state
 #         entity_id: sensor.codex_limit_5_godzinny
+#         below: 10
 #     condition:
 #       - condition: template
 #         value_template: >
-#           {{ trigger.from_state.state | float(0) < 1.5
-#              and trigger.to_state.state | float(0) > 3.5 }}
+#           {{ state_attr('sensor.codex_limit_5_godzinny', 'previous_value') | int(0) > 30 }}
 #     action:
-#       - service: notify.mobile_app_telefon
+#       - service: notify.mobile_app_twoj_telefon
 #         data:
-#           title: "Codex - reset limitu"
+#           title: "Codex - limit 5h zresetowany!"
 #           message: >
-#             Limit {{ state_attr('sensor.codex_limit_5_godzinny', 'limit_name') }}
-#             został zresetowany! ({{ trigger.from_state.state }} → {{ trigger.to_state.state }})
+#             Spadł z {{ state_attr('sensor.codex_limit_5_godzinny', 'previous_value') }}%
+#             do {{ states('sensor.codex_limit_5_godzinny') }}%.
+#             Możesz znowu korzystać!

@@ -2,23 +2,19 @@ DOMAIN = "codex_limits"
 PLATFORMS = ["sensor"]
 
 CONF_API_URL = "api_url"
-CONF_LIMITS = "limits"
 CONF_SCAN_INTERVAL = "scan_interval"
-CONF_API_KEY = "api_key"
-CONF_HEADERS = "headers"
+CONF_SESSION_TOKEN = "session_token"
+CONF_DEVICE_ID = "device_id"
+CONF_COOKIE = "cookie"
 
-DEFAULT_SCAN_INTERVAL = 60
-DEFAULT_API_URL = "http://localhost:11434/api/limits"
+DEFAULT_SCAN_INTERVAL = 120
+DEFAULT_API_URL = "https://chatgpt.com/backend-api/wham/usage"
 
-ATTR_LIMIT_NAME = "limit_name"
-ATTR_LIMIT_TYPE = "limit_type"
-ATTR_RESET_TIME = "reset_time"
+ATTR_LIMIT_REACHED = "limit_reached"
+ATTR_RESET_AT = "reset_at"
+ATTR_RESET_IN = "reset_after_seconds"
+ATTR_WINDOW_SECONDS = "limit_window_seconds"
 ATTR_PREVIOUS_VALUE = "previous_value"
-ATTR_IS_RESET = "is_reset"
-
-LIMIT_TYPES = {
-    "5h": {"name": "Limit 5-godzinny", "icon": "mdi:timer-sand", "max": 5},
-    "5d": {"name": "Limit 5-dniowy", "icon": "mdi:calendar-clock", "max": 5},
-}
+ATTR_PLAN_TYPE = "plan_type"
 
 SERVICE_CHECK_LIMITS = "check_limits"
