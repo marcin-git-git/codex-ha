@@ -26,6 +26,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional("session_token"): cv.string,
                 vol.Optional("device_id"): cv.string,
                 vol.Optional("cookie"): cv.string,
+                vol.Optional("notify_service", default="notify"): cv.string,
             }
         )
     },
@@ -44,6 +45,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         "session_token": conf.get("session_token"),
         "device_id": conf.get("device_id"),
         "cookie": conf.get("cookie"),
+        "notify_service": conf.get("notify_service", "notify"),
     }
 
     hass.data.setdefault(DOMAIN, {})

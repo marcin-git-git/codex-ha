@@ -46,9 +46,10 @@ async def async_setup_entry(
     session_token = domain_config.get("session_token")
     device_id = domain_config.get("device_id")
     cookie = domain_config.get("cookie")
+    notify_service = domain_config.get("notify_service") or "notify.notify"
 
     coordinator = CodexLimitsCoordinator(
-        hass, api_url, scan_interval, session_token, device_id, cookie
+        hass, api_url, scan_interval, session_token, device_id, cookie, notify_service
     )
 
     # Perform first refresh immediately so sensors have data on startup
@@ -85,11 +86,13 @@ class CodexLimitsCoordinator(DataUpdateCoordinator[dict]):
         session_token: str | None,
         device_id: str | None,
         cookie: str | None,
+        notify_service: str = "notify.notify",
     ):
         self.api_url = api_url
         self.session_token = session_token
         self.device_id = device_id
         self.cookie = cookie
+        self.notify_service = notify_service
         self._last_notification: dict[str, datetime] = {}
 
         super().__init__(
@@ -151,15 +154,19 @@ class CodexLimitsCoordinator(DataUpdateCoordinator[dict]):
             return
 
         message = (
-            f"Limit {limit_name} zresetowany!\n"
-            f"Poprzednio: {old_value}%\n"
-            f"Teraz: {new_value}%"
+            f"{limit_name} został zresetowany!\n"
+            f"Poprzednio pozostało: {old_value}%\n"
+            f"Teraz pozostało: {new_value}%"
         )
         _LOGGER.info("Sending notification: %s", message)
 
+        service_parts = self.notify_service.split(".")
+        domain = service_parts[0]
+        service = service_parts[1] if len(service_parts) > 1 else "notify"
+
         await self.hass.services.async_call(
-            "notify",
-            "notify",
+            domain,
+            service,
             {"message": message, "title": "Codex Limits"},
         )
 
@@ -208,7 +215,8 @@ class CodexLimitSensor(CoordinatorEntity[CodexLimitsCoordinator], SensorEntity):
             return None
         
         try:
-            return int(window["used_percent"])
+            used = int(window["used_percent"])
+            return max(0, min(100, 100 - used))
         except (KeyError, TypeError, ValueError):
             return None
 
@@ -276,8 +284,9 @@ class CodexLimitSensor(CoordinatorEntity[CodexLimitsCoordinator], SensorEntity):
         super()._handle_coordinator_update()
 
     def _is_reset(self, old_value: int, new_value: int) -> bool:
-        if new_value >= old_value:
+        if new_value <= old_value:
             return False
-        if old_value >= 30 and new_value <= 10:
+        # Wykrywamy reset, gdy limit znacząco wzrósł (np. z poziomu <= 80% do >= 98%)
+        if old_value <= 80 and new_value >= 98:
             return True
         return False
