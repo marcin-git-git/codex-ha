@@ -49,17 +49,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN].update(data)
 
-    hass.async_create_task(
-        hass.config_entries.flow.async_init(
+    try:
+        await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "import"}, data=data
         )
-    )
+    except Exception as e:
+        _LOGGER.error("Failed to import codex_limits config entry: %s", e)
 
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    _LOGGER.info("Setting up Codex Limits entry: %s", entry.entry_id)
+    _LOGGER.info("Setting up Codex Limits entry %s", entry.entry_id)
 
     hass.data.setdefault(DOMAIN, {})
     if not hass.data[DOMAIN]:
@@ -68,7 +69,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def handle_check_limits(call: ServiceCall) -> None:
-        _LOGGER.info("Manual check_limits service called")
         for component in hass.data.get("codex_limits_components", []):
             await component.async_update()
 

@@ -36,6 +36,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    _LOGGER.info("Setting up Codex Limits sensors")
     domain_config = hass.data.get(DOMAIN, {})
     api_url = domain_config.get("api_url") or DEFAULT_API_URL
     scan_interval = domain_config.get("scan_interval") or DEFAULT_SCAN_INTERVAL
