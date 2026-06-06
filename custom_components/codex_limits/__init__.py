@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_check_limits(call: ServiceCall) -> None:
         for component in hass.data.get("codex_limits_components", []):
-            await component.async_update()
+            await component.async_request_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_CHECK_LIMITS, handle_check_limits)
 

@@ -11,8 +11,11 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_time_interval
-
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    CoordinatorEntity,
+    UpdateFailed,
+)
 
 from .const import (
     DOMAIN,
@@ -48,6 +51,9 @@ async def async_setup_entry(
         hass, api_url, scan_interval, session_token, device_id, cookie
     )
 
+    # Perform first refresh immediately so sensors have data on startup
+    await coordinator.async_config_entry_first_refresh()
+
     sensors = [
         CodexLimitSensor(
             coordinator=coordinator,
@@ -67,10 +73,10 @@ async def async_setup_entry(
         hass.data["codex_limits_components"] = []
     hass.data["codex_limits_components"].append(coordinator)
 
-    async_add_entities(sensors, True)
+    async_add_entities(sensors)
 
 
-class CodexLimitsCoordinator:
+class CodexLimitsCoordinator(DataUpdateCoordinator[dict]):
     def __init__(
         self,
         hass: HomeAssistant,
@@ -80,32 +86,26 @@ class CodexLimitsCoordinator:
         device_id: str | None,
         cookie: str | None,
     ):
-        self.hass = hass
         self.api_url = api_url
-        self.scan_interval = scan_interval
         self.session_token = session_token
         self.device_id = device_id
         self.cookie = cookie
-        self._sensors: list[CodexLimitSensor] = []
         self._last_notification: dict[str, datetime] = {}
 
-    def register_sensor(self, sensor: CodexLimitSensor) -> None:
-        self._sensors.append(sensor)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=scan_interval),
+        )
 
-    async def async_update(self, *_) -> None:
+    async def _async_update_data(self) -> dict:
         _LOGGER.debug("Fetching limits from %s", self.api_url)
         try:
-            data = await self._fetch_limits()
+            return await self._fetch_limits()
         except Exception as e:
-            _LOGGER.warning("Failed to fetch limits: %s", e)
-            for sensor in self._sensors:
-                if sensor.available:
-                    sensor.available = False
-                    sensor.async_write_ha_state()
-            return
-
-        for sensor in self._sensors:
-            sensor.process_update(data)
+            _LOGGER.exception("Failed to fetch limits from Codex API: %s", e)
+            raise UpdateFailed(f"Error fetching limits: {e}") from e
 
     async def _fetch_limits(self) -> dict:
         headers = {
@@ -164,9 +164,9 @@ class CodexLimitsCoordinator:
         )
 
 
-class CodexLimitSensor(SensorEntity):
+class CodexLimitSensor(CoordinatorEntity[CodexLimitsCoordinator], SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_should_poll = False
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -175,41 +175,50 @@ class CodexLimitSensor(SensorEntity):
         limit_name: str,
         icon: str,
     ):
-        self._coordinator = coordinator
+        super().__init__(coordinator)
         self._limit_key = limit_key
-        self._attr_name = f"Codex {limit_name}"
+        self._attr_name = f"{limit_name}"
         self._attr_unique_id = f"codex_limits_{limit_key}"
         self._attr_icon = icon
-        self._attr_native_value = None
-        self._attr_native_unit_of_measurement = PERCENTAGE
         self._previous_value: int | None = None
-        self._attr_extra_state_attributes: dict = {}
-        self.available = True
+        self._attr_native_value = None
 
-        coordinator.register_sensor(self)
-
-    def process_update(self, data: dict) -> None:
-        rate_limit = data.get("rate_limit")
+    @property
+    def available(self) -> bool:
+        if not self.coordinator.last_update_success:
+            return False
+        if not self.coordinator.data:
+            return False
+        rate_limit = self.coordinator.data.get("rate_limit")
         if not rate_limit:
-            self.available = False
-            self.async_write_ha_state()
-            return
+            return False
+        return self._limit_key in rate_limit
 
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.data:
+            return None
+        
+        rate_limit = self.coordinator.data.get("rate_limit")
+        if not rate_limit:
+            return None
+        
         window = rate_limit.get(self._limit_key)
         if not window:
-            self.available = False
-            self.async_write_ha_state()
-            return
-
+            return None
+        
         try:
-            new_value = int(window["used_percent"])
+            return int(window["used_percent"])
         except (KeyError, TypeError, ValueError):
-            self.available = False
-            self.async_write_ha_state()
-            return
+            return None
 
-        self.available = True
-        old_value = self._attr_native_value
+    @property
+    def extra_state_attributes(self) -> dict:
+        if not self.coordinator.data:
+            return {}
+
+        rate_limit = self.coordinator.data.get("rate_limit", {})
+        window = rate_limit.get(self._limit_key, {})
 
         limit_reached = rate_limit.get("limit_reached", False)
         reset_at_ts = window.get("reset_at")
@@ -229,33 +238,42 @@ class CodexLimitSensor(SensorEntity):
         else:
             reset_label = ""
 
-        self._attr_extra_state_attributes = {
+        return {
             ATTR_LIMIT_REACHED: limit_reached,
             ATTR_RESET_AT: reset_at_str,
             ATTR_RESET_IN: reset_in_s,
             ATTR_WINDOW_SECONDS: window_s,
             ATTR_PREVIOUS_VALUE: self._previous_value,
             "reset_label": reset_label,
-            ATTR_PLAN_TYPE: data.get("plan_type", "unknown"),
+            ATTR_PLAN_TYPE: self.coordinator.data.get("plan_type", "unknown"),
             "rate_allowed": rate_limit.get("allowed", True),
         }
 
-        if old_value is not None and self._is_reset(old_value, new_value):
-            _LOGGER.info(
-                "Limit %s reset detected: %s%% -> %s%%",
-                self._limit_key,
-                old_value,
-                new_value,
-            )
-            self._previous_value = old_value
-            self.hass.async_create_task(
-                self._coordinator.send_notification(
-                    self._attr_name, old_value, new_value, self._limit_key
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return PERCENTAGE
+
+    def _handle_coordinator_update(self) -> None:
+        old_value = self._attr_native_value
+        new_value = self.native_value
+
+        if old_value is not None and new_value is not None:
+            if self._is_reset(old_value, new_value):
+                _LOGGER.info(
+                    "Limit %s reset detected: %s%% -> %s%%",
+                    self._limit_key,
+                    old_value,
+                    new_value,
                 )
-            )
+                self._previous_value = old_value
+                self.hass.async_create_task(
+                    self.coordinator.send_notification(
+                        self._attr_name, old_value, new_value, self._limit_key
+                    )
+                )
 
         self._attr_native_value = new_value
-        self.async_write_ha_state()
+        super()._handle_coordinator_update()
 
     def _is_reset(self, old_value: int, new_value: int) -> bool:
         if new_value >= old_value:
@@ -263,13 +281,3 @@ class CodexLimitSensor(SensorEntity):
         if old_value >= 30 and new_value <= 10:
             return True
         return False
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        self.async_on_remove(
-            async_track_time_interval(
-                self.hass,
-                self._coordinator.async_update,
-                timedelta(seconds=self._coordinator.scan_interval),
-            )
-        )
