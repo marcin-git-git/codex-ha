@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, PLATFORMS, SERVICE_CHECK_LIMITS
+from .const import DOMAIN, SERVICE_CHECK_LIMITS
 
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.SENSOR]
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -34,13 +38,20 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         return True
 
     conf = config[DOMAIN]
+    data: dict[str, Any] = {
+        "api_url": conf.get("api_url"),
+        "scan_interval": conf.get("scan_interval", 120),
+        "session_token": conf.get("session_token"),
+        "device_id": conf.get("device_id"),
+        "cookie": conf.get("cookie"),
+    }
+
     hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN].update(data)
 
     hass.async_create_task(
         hass.config_entries.flow.async_init(
-            DOMAIN,
-            context={"source": "import"},
-            data=conf,
+            DOMAIN, context={"source": "import"}, data=data
         )
     )
 
@@ -48,14 +59,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    _LOGGER.info("Setting up Codex Limits entry: %s", entry.entry_id)
+
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN] = {
-        "api_url": entry.data.get("api_url"),
-        "scan_interval": entry.data.get("scan_interval", 120),
-        "session_token": entry.data.get("session_token"),
-        "device_id": entry.data.get("device_id"),
-        "cookie": entry.data.get("cookie"),
-    }
+    if not hass.data[DOMAIN]:
+        hass.data[DOMAIN].update(entry.data)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -70,4 +78,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    hass.data[DOMAIN] = {}
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
