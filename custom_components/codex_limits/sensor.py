@@ -11,8 +11,8 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.components.notify import async_call as notify_call
+    from homeassistant.helpers.event import async_track_time_interval
+
 
 from .const import (
     DOMAIN,
@@ -157,10 +157,10 @@ class CodexLimitsCoordinator:
         )
         _LOGGER.info("Sending notification: %s", message)
 
-        await notify_call(
-            self.hass,
-            service="notify",
-            data={"message": message, "title": "Codex Limits"},
+        await self.hass.services.async_call(
+            "notify",
+            "notify",
+            {"message": message, "title": "Codex Limits"},
         )
 
 
