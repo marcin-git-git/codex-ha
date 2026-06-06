@@ -11,7 +11,7 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_time_interval
 
 
 from .const import (
